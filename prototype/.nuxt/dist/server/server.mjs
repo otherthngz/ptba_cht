@@ -1,0 +1,1 @@
+export { default } from "file:///Users/raissagabriella/Documents/projects/FMS%20PTBA/prototype/node_modules/@nuxt/vite-builder/dist/vite-node-entry.mjs"
