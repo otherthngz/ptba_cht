@@ -1,4 +1,19 @@
+# ignore dependencies:
 node_modules/
-.DS_Store
+prototype/node_modules/
+
+# ignore Nuxt build outputs:
 .nuxt/
 .output/
+prototype/.nuxt/
+prototype/.output/
+
+# ignore macOS junk:
+.DS_Store
+
+# ignore logs:
+*.log
+
+# ignore env files:
+.env
+.env.*
