@@ -2,7 +2,8 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
   css: ['~/assets/css/main.css'],
   colorMode: {
-    preference: 'dark'
+    preference: 'light',
+    fallback: 'light'
   },
   compatibilityDate: '2025-01-01',
   icon: {

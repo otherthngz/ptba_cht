@@ -1,78 +1,12 @@
-<template>
-  <UDashboardPanel id="data-quality">
-    <template #header>
-      <div class="flex items-center justify-between w-full flex-wrap gap-2">
-        <div>
-          <h1 class="text-xl font-bold">Data Quality</h1>
-          <p class="text-xs text-(--ui-text-muted)">Anomaly detection and audit trail</p>
-        </div>
-        <UButton label="Refresh" icon="i-lucide-refresh-cw" size="xs" variant="ghost" @click="refreshAll" />
-      </div>
-    </template>
-
-    <template #body>
-      <!-- KPI Cards -->
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4 mb-6" v-if="issues">
-        <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">Open Issues</div><div class="text-[28px] font-extrabold mt-1 text-red-500">{{ kpiOpen }}</div></div></UCard>
-        <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">High Severity</div><div class="text-[28px] font-extrabold mt-1 text-amber-500">{{ kpiHigh }}</div></div></UCard>
-        <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">Resolved</div><div class="text-[28px] font-extrabold mt-1 text-green-500">{{ kpiResolved }}</div></div></UCard>
-        <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">Top Anomaly</div><div class="text-sm font-bold mt-2">{{ kpiTopType }}</div></div></UCard>
-      </div>
-      <div v-else class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4 mb-6">
-        <UCard v-for="i in 4" :key="i"><USkeleton class="h-16" /></UCard>
-      </div>
-
-      <UTabs :items="tabs" class="w-full">
-        <template #anomalies>
-          <div class="pt-4">
-            <div class="flex gap-2 mb-4 flex-wrap">
-              <USelectMenu v-model="filterType" :items="typeOptions" placeholder="All Types" size="xs" class="w-[180px]" />
-              <USelectMenu v-model="filterSeverity" :items="sevOptions" placeholder="All Severity" size="xs" class="w-[130px]" />
-              <USelectMenu v-model="filterIssueStatus" :items="issStatusOptions" placeholder="All Status" size="xs" class="w-[130px]" />
-            </div>
-
-            <div v-if="!issues" class="flex flex-col gap-2.5"><USkeleton v-for="i in 5" :key="i" class="h-9" /></div>
-            <template v-else>
-              <div v-if="filteredIssues.length === 0" class="text-center py-10 text-(--ui-text-muted)">
-                <UIcon name="i-lucide-check-circle" class="size-8 text-green-500 mb-2" />
-                <p>No issues match current filters.</p>
-              </div>
-              <UTable v-else :data="filteredIssues" :columns="issueCols">
-                <template #issue_type-cell="{ row }"><UBadge color="primary" variant="subtle" size="xs">{{ row.original.issue_type }}</UBadge></template>
-                <template #severity-cell="{ row }"><UBadge :color="row.original.severity === 'CRITICAL' ? 'error' : row.original.severity === 'HIGH' ? 'error' : row.original.severity === 'MEDIUM' ? 'warning' : 'neutral'" variant="solid" size="xs">{{ row.original.severity }}</UBadge></template>
-                <template #unit_id-cell="{ row }"><span class="font-semibold">{{ row.original.unit_id }}</span></template>
-                <template #detail-cell="{ row }"><span class="text-xs">{{ truncate(row.original.detail, 50) }}</span></template>
-                <template #status-cell="{ row }"><UBadge :color="row.original.status === 'OPEN' ? 'error' : row.original.status === 'IN_REVIEW' ? 'warning' : 'success'" :variant="row.original.status === 'RESOLVED' ? 'subtle' : 'solid'" size="xs">{{ row.original.status }}</UBadge></template>
-                <template #actions-cell="{ row }">
-                  <UButton v-if="row.original.status !== 'RESOLVED'" :label="row.original.status === 'OPEN' ? 'Review' : 'Resolve'" size="xs" :variant="row.original.status === 'OPEN' ? 'soft' : 'solid'" :color="row.original.status === 'OPEN' ? 'warning' : 'success'" @click="transitionIssue(row.original)" />
-                </template>
-              </UTable>
-            </template>
-          </div>
-        </template>
-
-        <template #audit>
-          <div class="pt-4">
-            <div v-if="!auditData" class="flex flex-col gap-2.5"><USkeleton v-for="i in 5" :key="i" class="h-9" /></div>
-            <template v-else>
-              <div v-if="auditData.length === 0" class="text-center py-10 text-(--ui-text-muted)">No audit entries yet.</div>
-              <UTable v-else :data="auditData" :columns="auditCols">
-                <template #action-cell="{ row }"><UBadge color="info" variant="subtle" size="xs">{{ row.original.action }}</UBadge></template>
-                <template #entity_type-cell="{ row }"><span class="text-xs">{{ row.original.entity_type }} <span class="text-(--ui-text-muted)">#{{ row.original.entity_id }}</span></span></template>
-                <template #timestamp-cell="{ row }"><span class="text-xs">{{ new Date(row.original.timestamp).toLocaleString() }}</span></template>
-                <template #before-cell="{ row }"><span class="text-xs text-(--ui-text-muted)">{{ formatPayload(row.original.payload_before) }}</span></template>
-                <template #after-cell="{ row }"><span class="text-xs">{{ formatPayload(row.original.payload_after) }}</span></template>
-                <template #reason-cell="{ row }"><span class="text-xs text-(--ui-text-muted)">{{ row.original.reason || '--' }}</span></template>
-              </UTable>
-            </template>
-          </div>
-        </template>
-      </UTabs>
-    </template>
-  </UDashboardPanel>
-</template>
-
 <script setup lang="ts">
+const pageTitle = inject<Ref<string>>('pageTitle')
+const showToolbar = inject<Ref<boolean>>('showToolbar')
+
+onMounted(() => {
+  if (pageTitle) pageTitle.value = 'Data Quality'
+  if (showToolbar) showToolbar.value = false
+})
+
 const filterType = ref<string | undefined>()
 const filterSeverity = ref<string | undefined>()
 const filterIssueStatus = ref<string | undefined>()
@@ -125,7 +59,6 @@ const filteredIssues = computed(() => {
   })
 })
 
-// KPIs
 const kpiOpen = computed(() => (issues.value ?? []).filter((i: any) => i.status === 'OPEN').length)
 const kpiHigh = computed(() => (issues.value ?? []).filter((i: any) => i.severity === 'HIGH' || i.severity === 'CRITICAL').length)
 const kpiResolved = computed(() => (issues.value ?? []).filter((i: any) => i.status === 'RESOLVED').length)
@@ -156,3 +89,70 @@ async function refreshAll() {
   await Promise.all([refreshIssues(), refreshAudit()])
 }
 </script>
+
+<template>
+  <div class="p-4 flex flex-col gap-4">
+    <!-- Action bar -->
+    <div class="flex items-center gap-2">
+      <UButton label="Refresh" icon="i-lucide-refresh-cw" size="xs" variant="ghost" @click="refreshAll" />
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4" v-if="issues">
+      <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">Open Issues</div><div class="text-[28px] font-extrabold mt-1 text-red-500">{{ kpiOpen }}</div></div></UCard>
+      <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">High Severity</div><div class="text-[28px] font-extrabold mt-1 text-amber-500">{{ kpiHigh }}</div></div></UCard>
+      <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">Resolved</div><div class="text-[28px] font-extrabold mt-1 text-green-500">{{ kpiResolved }}</div></div></UCard>
+      <UCard><div class="text-center"><div class="text-xs font-semibold text-(--ui-text-muted) uppercase tracking-wider">Top Anomaly</div><div class="text-sm font-bold mt-2">{{ kpiTopType }}</div></div></UCard>
+    </div>
+    <div v-else class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
+      <UCard v-for="i in 4" :key="i"><USkeleton class="h-16" /></UCard>
+    </div>
+
+    <UTabs :items="tabs" class="w-full">
+      <template #anomalies>
+        <div class="pt-4">
+          <div class="flex gap-2 mb-4 flex-wrap">
+            <USelectMenu v-model="filterType" :items="typeOptions" placeholder="All Types" size="xs" class="w-[180px]" />
+            <USelectMenu v-model="filterSeverity" :items="sevOptions" placeholder="All Severity" size="xs" class="w-[130px]" />
+            <USelectMenu v-model="filterIssueStatus" :items="issStatusOptions" placeholder="All Status" size="xs" class="w-[130px]" />
+          </div>
+
+          <div v-if="!issues" class="flex flex-col gap-2.5"><USkeleton v-for="i in 5" :key="i" class="h-9" /></div>
+          <template v-else>
+            <div v-if="filteredIssues.length === 0" class="text-center py-10 text-(--ui-text-muted)">
+              <UIcon name="i-lucide-check-circle" class="size-8 text-green-500 mb-2" />
+              <p>No issues match current filters.</p>
+            </div>
+            <UTable v-else :data="filteredIssues" :columns="issueCols">
+              <template #issue_type-cell="{ row }"><UBadge color="primary" variant="subtle" size="xs">{{ row.original.issue_type }}</UBadge></template>
+              <template #severity-cell="{ row }"><UBadge :color="row.original.severity === 'CRITICAL' ? 'error' : row.original.severity === 'HIGH' ? 'error' : row.original.severity === 'MEDIUM' ? 'warning' : 'neutral'" variant="solid" size="xs">{{ row.original.severity }}</UBadge></template>
+              <template #unit_id-cell="{ row }"><span class="font-semibold">{{ row.original.unit_id }}</span></template>
+              <template #detail-cell="{ row }"><span class="text-xs">{{ truncate(row.original.detail, 50) }}</span></template>
+              <template #status-cell="{ row }"><UBadge :color="row.original.status === 'OPEN' ? 'error' : row.original.status === 'IN_REVIEW' ? 'warning' : 'success'" :variant="row.original.status === 'RESOLVED' ? 'subtle' : 'solid'" size="xs">{{ row.original.status }}</UBadge></template>
+              <template #actions-cell="{ row }">
+                <UButton v-if="row.original.status !== 'RESOLVED'" :label="row.original.status === 'OPEN' ? 'Review' : 'Resolve'" size="xs" :variant="row.original.status === 'OPEN' ? 'soft' : 'solid'" :color="row.original.status === 'OPEN' ? 'warning' : 'success'" @click="transitionIssue(row.original)" />
+              </template>
+            </UTable>
+          </template>
+        </div>
+      </template>
+
+      <template #audit>
+        <div class="pt-4">
+          <div v-if="!auditData" class="flex flex-col gap-2.5"><USkeleton v-for="i in 5" :key="i" class="h-9" /></div>
+          <template v-else>
+            <div v-if="auditData.length === 0" class="text-center py-10 text-(--ui-text-muted)">No audit entries yet.</div>
+            <UTable v-else :data="auditData" :columns="auditCols">
+              <template #action-cell="{ row }"><UBadge color="info" variant="subtle" size="xs">{{ row.original.action }}</UBadge></template>
+              <template #entity_type-cell="{ row }"><span class="text-xs">{{ row.original.entity_type }} <span class="text-(--ui-text-muted)">#{{ row.original.entity_id }}</span></span></template>
+              <template #timestamp-cell="{ row }"><span class="text-xs">{{ new Date(row.original.timestamp).toLocaleString() }}</span></template>
+              <template #before-cell="{ row }"><span class="text-xs text-(--ui-text-muted)">{{ formatPayload(row.original.payload_before) }}</span></template>
+              <template #after-cell="{ row }"><span class="text-xs">{{ formatPayload(row.original.payload_after) }}</span></template>
+              <template #reason-cell="{ row }"><span class="text-xs text-(--ui-text-muted)">{{ row.original.reason || '--' }}</span></template>
+            </UTable>
+          </template>
+        </div>
+      </template>
+    </UTabs>
+  </div>
+</template>

@@ -1,5 +1,13 @@
 <script setup lang="ts">
-const { data } = useFetch<any>('/api/dashboard/summary')
+const pageTitle = inject<Ref<string>>('pageTitle')
+const showToolbar = inject<Ref<boolean>>('showToolbar')
+
+onMounted(() => {
+  if (pageTitle) pageTitle.value = 'Dashboard'
+  if (showToolbar) showToolbar.value = true
+})
+
+const { data, refresh } = useFetch<any>('/api/dashboard/summary')
 
 const activeTab = ref('pending')
 
@@ -90,35 +98,38 @@ function formatMinutes(m: number) {
   if (m < 60) return `${m}m`
   return `${Math.floor(m / 60)}h ${m % 60}m`
 }
+
+function formatReason(value: unknown) {
+  if (typeof value !== 'string') return ''
+  return value.replace(/_/g, ' ')
+}
+
+function toNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function formatDateTime(value: unknown) {
+  if (!(typeof value === 'string' || typeof value === 'number' || value instanceof Date)) return ''
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString()
+}
 </script>
 
 <template>
-  <UDashboardPanel id="dashboard">
-    <template #header>
-      <UDashboardNavbar title="Dashboard" icon="i-lucide-layout-dashboard">
-        <template #right>
-          <div class="flex items-center gap-2">
-            <UButton icon="i-lucide-calendar" label="Today" color="neutral" variant="outline" size="sm" />
-            <UButton icon="i-lucide-refresh-cw" label="Refresh" color="neutral" variant="ghost" size="sm" @click="$fetch" />
-          </div>
-        </template>
-      </UDashboardNavbar>
-    </template>
-
-    <template #body>
-      <!-- Loading state -->
-      <div v-if="!data" class="flex flex-col gap-4">
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <USkeleton v-for="i in 10" :key="i" class="h-20" />
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <USkeleton class="h-64" />
-          <USkeleton class="h-64" />
-        </div>
-        <USkeleton class="h-96" />
+  <div class="p-4 flex flex-col gap-4">
+    <!-- Loading state -->
+    <div v-if="!data" class="flex flex-col gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <USkeleton v-for="i in 10" :key="i" class="h-20" />
       </div>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <USkeleton class="h-64" />
+        <USkeleton class="h-64" />
+      </div>
+      <USkeleton class="h-96" />
+    </div>
 
-      <template v-else>
+    <template v-else>
         <!-- ─── KPI Cards Grid (2 rows, 5 per row on lg) ─── -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
           <UCard :ui="{ body: 'p-3' }">
@@ -296,11 +307,11 @@ function formatMinutes(m: number) {
                 <span v-else class="text-(--ui-text-muted)">--</span>
               </template>
               <template #pending_reason-cell="{ row }">
-                <UBadge v-if="row.original.pending_reason" color="warning" variant="subtle" size="xs">{{ row.original.pending_reason.replace(/_/g, ' ') }}</UBadge>
+                <UBadge v-if="formatReason(row.original.pending_reason)" color="warning" variant="subtle" size="xs">{{ formatReason(row.original.pending_reason) }}</UBadge>
               </template>
               <template #age_minutes-cell="{ row }">
-                <span v-if="row.original.age_minutes != null" class="text-xs" :class="row.original.age_minutes > 60 ? 'text-red-500 font-semibold' : ''">
-                  {{ formatMinutes(row.original.age_minutes) }}
+                <span v-if="toNumber(row.original.age_minutes) !== null" class="text-xs" :class="(toNumber(row.original.age_minutes) ?? 0) > 60 ? 'text-red-500 font-semibold' : ''">
+                  {{ formatMinutes(toNumber(row.original.age_minutes) ?? 0) }}
                 </span>
               </template>
 
@@ -312,7 +323,7 @@ function formatMinutes(m: number) {
                 <UBadge v-if="row.original.severity" :color="row.original.severity === 'CRITICAL' ? 'error' : row.original.severity === 'HIGH' ? 'error' : row.original.severity === 'MEDIUM' ? 'warning' : 'neutral'" size="xs">{{ row.original.severity }}</UBadge>
               </template>
               <template #created_at-cell="{ row }">
-                <span v-if="row.original.created_at" class="text-xs">{{ new Date(row.original.created_at).toLocaleString() }}</span>
+                <span v-if="formatDateTime(row.original.created_at)" class="text-xs">{{ formatDateTime(row.original.created_at) }}</span>
               </template>
 
               <!-- Audit cells -->
@@ -320,7 +331,7 @@ function formatMinutes(m: number) {
                 <UBadge v-if="row.original.action" color="info" variant="subtle" size="xs">{{ row.original.action }}</UBadge>
               </template>
               <template #timestamp-cell="{ row }">
-                <span v-if="row.original.timestamp" class="text-xs">{{ new Date(row.original.timestamp).toLocaleString() }}</span>
+                <span v-if="formatDateTime(row.original.timestamp)" class="text-xs">{{ formatDateTime(row.original.timestamp) }}</span>
               </template>
 
               <!-- Top Units cells -->
@@ -339,7 +350,6 @@ function formatMinutes(m: number) {
             </UTable>
           </div>
         </UCard>
-      </template>
     </template>
-  </UDashboardPanel>
+  </div>
 </template>

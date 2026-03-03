@@ -1,64 +1,41 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
 
-const colorMode = useColorMode()
-
-function toggleTheme() {
-  colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
-}
-
 // Sidebar open state (mobile)
 const sidebarOpen = ref(false)
 
+// Page title & toolbar (provided to child pages via inject)
+const pageTitle = ref('Dashboard')
+const showToolbar = ref(false)
+provide('pageTitle', pageTitle)
+provide('showToolbar', showToolbar)
+
+// Toolbar state
+const selectedDate = ref(new Date().toISOString().split('T')[0])
+const selectedRange = ref('daily')
+const timeRanges = [
+  { label: 'Harian',   value: 'daily' },
+  { label: 'Mingguan', value: 'weekly' },
+  { label: 'Bulanan',  value: 'monthly' },
+]
+
 const navItems: NavigationMenuItem[][] = [
   [
-    { label: 'Dashboard', icon: 'i-lucide-layout-dashboard', to: '/dashboard' },
-    { label: 'Reports', icon: 'i-lucide-file-bar-chart', to: '/reports' },
-    { label: 'Fleet Control', icon: 'i-lucide-truck', to: '/fleet' },
-    { label: 'Availability', icon: 'i-lucide-clock', to: '/availability' },
-    { label: 'Production', icon: 'i-lucide-bar-chart-3', to: '/production' },
-    { label: 'Master Data', icon: 'i-lucide-database', defaultOpen: true, children: [
-      { label: 'Units', icon: 'i-lucide-truck', to: '/master-data/units' },
-      { label: 'Locations', icon: 'i-lucide-map-pin', to: '/master-data/locations' },
-      { label: 'Shifts', icon: 'i-lucide-clock', to: '/master-data/shifts' },
+    { label: 'Dashboard',     icon: 'i-lucide-layout-dashboard', to: '/dashboard' },
+    { label: 'Fleet',         icon: 'i-lucide-truck',            to: '/fleet' },
+    { label: 'Produksi',      icon: 'i-lucide-bar-chart-3',      to: '/production' },
+    { label: 'Availabilitas', icon: 'i-lucide-clock',            to: '/availability' },
+    { label: 'Laporan',       icon: 'i-lucide-file-bar-chart',   to: '/reports' },
+    { label: 'Master Data',   icon: 'i-lucide-database', defaultOpen: false, children: [
+      { label: 'Units',     icon: 'i-lucide-truck',     to: '/master-data/units' },
+      { label: 'Lokasi',    icon: 'i-lucide-map-pin',   to: '/master-data/locations' },
+      { label: 'Shift',     icon: 'i-lucide-clock',     to: '/master-data/shifts' },
     ]},
-    { label: 'Users', icon: 'i-lucide-users', to: '/users' },
   ],
 ]
 
 const userMenuItems = [
-  [{
-    label: 'Profile',
-    icon: 'i-lucide-user',
-    disabled: true
-  }, {
-    label: 'Settings',
-    icon: 'i-lucide-settings',
-    disabled: true
-  }, {
-    label: 'Billing',
-    icon: 'i-lucide-credit-card',
-    disabled: true
-  }],
-  [{
-    label: 'Appearance',
-    icon: colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon',
-    onSelect: () => toggleTheme()
-  }],
-  [{
-    label: 'Documentation',
-    icon: 'i-lucide-book-open',
-    disabled: true
-  }, {
-    label: 'GitHub',
-    icon: 'i-lucide-github',
-    disabled: true
-  }],
-  [{
-    label: 'Logout',
-    icon: 'i-lucide-log-out',
-    disabled: true
-  }]
+  [{ label: 'Logout', icon: 'i-lucide-log-out', disabled: true }]
 ]
 </script>
 
@@ -79,24 +56,8 @@ const userMenuItems = [
         </div>
       </template>
 
-      <!-- Sidebar body: Search + Navigation -->
+      <!-- Sidebar body: Navigation -->
       <template #default="{ collapsed }">
-        <UButton
-          :label="collapsed ? undefined : 'Search...'"
-          icon="i-lucide-search"
-          color="neutral"
-          variant="outline"
-          block
-          :square="collapsed"
-        >
-          <template v-if="!collapsed" #trailing>
-            <div class="flex items-center gap-0.5 ms-auto">
-              <UKbd value="meta" variant="subtle" />
-              <UKbd value="K" variant="subtle" />
-            </div>
-          </template>
-        </UButton>
-
         <UNavigationMenu
           :collapsed="collapsed"
           :items="navItems[0]"
@@ -124,6 +85,47 @@ const userMenuItems = [
       </template>
     </UDashboardSidebar>
 
-    <slot />
+    <!-- Page area -->
+    <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
+
+      <!-- Navbar -->
+      <UDashboardNavbar>
+        <template #left>
+          <UDashboardSidebarCollapse />
+          <span class="font-semibold text-sm text-(--ui-text)">
+            {{ pageTitle }}
+          </span>
+        </template>
+      </UDashboardNavbar>
+
+      <!-- Toolbar (conditional) -->
+      <UDashboardToolbar v-if="showToolbar">
+        <template #left>
+          <UInput
+            type="date"
+            :model-value="selectedDate"
+            @update:model-value="selectedDate = $event"
+            size="sm"
+          />
+          <div class="flex gap-1">
+            <UButton
+              v-for="range in timeRanges"
+              :key="range.value"
+              :label="range.label"
+              size="sm"
+              :color="selectedRange === range.value ? 'primary' : 'neutral'"
+              :variant="selectedRange === range.value ? 'solid' : 'ghost'"
+              @click="selectedRange = range.value"
+            />
+          </div>
+        </template>
+      </UDashboardToolbar>
+
+      <!-- Page slot -->
+      <div class="flex-1 overflow-y-auto">
+        <slot />
+      </div>
+
+    </div>
   </UDashboardGroup>
 </template>

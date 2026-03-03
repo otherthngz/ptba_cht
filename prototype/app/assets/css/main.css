@@ -1,2 +1,16 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+@theme {
+  --color-netra-50:  #EFFBFC;
+  --color-netra-100: #D6F3F7;
+  --color-netra-200: #B1E5F0;
+  --color-netra-300: #7BD1E5;
+  --color-netra-400: #3FB5D1;
+  --color-netra-500: #2399B7;
+  --color-netra-600: #207A9A;
+  --color-netra-700: #20647E;
+  --color-netra-800: #225368;
+  --color-netra-900: #214658;
+  --color-netra-950: #0B1E28;
+}
