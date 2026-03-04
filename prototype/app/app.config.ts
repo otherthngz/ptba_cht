@@ -4,5 +4,9 @@ export default defineAppConfig({
             primary: 'netra',
             neutral: 'slate'
         }
+    },
+    // force light
+    theme: {
+        dark: false
     }
 })

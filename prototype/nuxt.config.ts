@@ -3,7 +3,8 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   colorMode: {
     preference: 'light',
-    fallback: 'light'
+    fallback: 'light',
+    classSuffix: ''
   },
   compatibilityDate: '2025-01-01',
   icon: {

@@ -1,24 +1,64 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from '@nuxt/ui'
+import { CalendarDate } from '@internationalized/date'
+
+// Force light mode regardless of OS preference or cookie
+const colorMode = useColorMode()
+colorMode.preference = 'light'
 
 // Sidebar open state (mobile)
 const sidebarOpen = ref(false)
 
-// Page title & toolbar (provided to child pages via inject)
+// Page title & toolbar type (provided to child pages via inject)
 const pageTitle = ref('Dashboard')
-const showToolbar = ref(false)
+const toolbarType = ref<'historical' | 'realtime' | 'none'>('none')
 provide('pageTitle', pageTitle)
-provide('showToolbar', showToolbar)
+provide('toolbarType', toolbarType)
 
-// Toolbar state
-const selectedDate = ref(new Date().toISOString().split('T')[0])
-const selectedRange = ref('daily')
-const timeRanges = [
+// ── Historical toolbar state ──────────────────────────────────────
+const today = new Date()
+const selectedDateRange = ref<any>({
+  start: new CalendarDate(today.getFullYear(), today.getMonth() + 1, today.getDate() - 6),
+  end: new CalendarDate(today.getFullYear(), today.getMonth() + 1, today.getDate()),
+})
+const selectedGranularity = ref('daily')
+const granularityOptions = [
   { label: 'Harian',   value: 'daily' },
   { label: 'Mingguan', value: 'weekly' },
   { label: 'Bulanan',  value: 'monthly' },
 ]
 
+function formatDateRange(range: { start: any; end: any }) {
+  const toDate = (d: any): Date => d instanceof Date ? d : (d?.toDate ? d.toDate('UTC') : new Date())
+  const fmt = (d: any) => toDate(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+  if (!range?.start) return 'Pilih tanggal'
+  if (!range.end) return fmt(range.start)
+  const s = toDate(range.start); const e = toDate(range.end)
+  if (s.toDateString() === e.toDateString()) return fmt(range.start)
+  return fmt(range.start) + ' – ' + fmt(range.end)
+}
+
+// ── Realtime toolbar state ────────────────────────────────────────
+const realtimeWindow = ref('1h')
+const realtimeWindows = ['1h', '6h', '24h']
+const autoRefresh = ref(true)
+const lastRefresh = ref(new Date())
+
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  refreshTimer = setInterval(() => {
+    if (autoRefresh.value && toolbarType.value === 'realtime') {
+      lastRefresh.value = new Date()
+    }
+  }, 60_000)
+})
+onUnmounted(() => { if (refreshTimer) clearInterval(refreshTimer) })
+
+function fmtTime(d: Date) {
+  return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+}
+
+// ── Navigation ────────────────────────────────────────────────────
 const navItems: NavigationMenuItem[][] = [
   [
     { label: 'Dashboard',     icon: 'i-lucide-layout-dashboard', to: '/dashboard' },
@@ -50,9 +90,9 @@ const userMenuItems = [
     >
       <!-- Sidebar header: Logo -->
       <template #header="{ collapsed }">
-        <div class="flex items-center gap-2" :class="collapsed ? 'justify-center' : ''">
-          <UIcon name="i-lucide-hard-hat" class="size-5 shrink-0" />
-          <span v-if="!collapsed" class="font-bold text-sm truncate">PTBA CHT</span>
+        <div class="flex items-center gap-2 px-1" :class="collapsed ? 'justify-center' : ''">
+          <UIcon v-if="collapsed" name="i-lucide-mountain" class="size-6 text-primary shrink-0" />
+          <img v-else src="/logo.png" alt="BukitAsam" class="h-8 w-auto max-w-[140px]">
         </div>
       </template>
 
@@ -98,25 +138,67 @@ const userMenuItems = [
         </template>
       </UDashboardNavbar>
 
-      <!-- Toolbar (conditional) -->
-      <UDashboardToolbar v-if="showToolbar">
+      <!-- ── Historical Toolbar ── -->
+      <UDashboardToolbar v-if="toolbarType === 'historical'">
         <template #left>
-          <UInput
-            type="date"
-            :model-value="selectedDate"
-            @update:model-value="selectedDate = $event"
+          <UPopover :popper="{ placement: 'bottom-start' }">
+            <UButton
+              icon="i-lucide-calendar"
+              :label="formatDateRange(selectedDateRange)"
+              color="neutral"
+              variant="outline"
+              size="sm"
+            />
+            <template #content>
+              <div class="p-3">
+                <UCalendar
+                  v-model="selectedDateRange"
+                  range
+                  :number-of-months="2"
+                />
+              </div>
+            </template>
+          </UPopover>
+
+          <USelect
+            v-model="selectedGranularity"
+            :items="granularityOptions"
+            value-key="value"
+            label-key="label"
             size="sm"
+            variant="ghost"
+            class="w-32"
           />
+        </template>
+      </UDashboardToolbar>
+
+      <!-- ── Realtime Toolbar ── -->
+      <UDashboardToolbar v-else-if="toolbarType === 'realtime'">
+        <template #left>
           <div class="flex gap-1">
             <UButton
-              v-for="range in timeRanges"
-              :key="range.value"
-              :label="range.label"
+              v-for="w in realtimeWindows"
+              :key="w"
+              :label="'Last ' + w"
               size="sm"
-              :color="selectedRange === range.value ? 'primary' : 'neutral'"
-              :variant="selectedRange === range.value ? 'solid' : 'ghost'"
-              @click="selectedRange = range.value"
+              :color="realtimeWindow === w ? 'primary' : 'neutral'"
+              :variant="realtimeWindow === w ? 'solid' : 'ghost'"
+              @click="realtimeWindow = w"
             />
+          </div>
+
+          <USeparator orientation="vertical" class="h-4" />
+
+          <UBadge color="neutral" variant="outline" size="sm">
+            <UIcon name="i-lucide-clock" class="size-3 mr-1" />
+            Refresh: {{ fmtTime(lastRefresh) }}
+          </UBadge>
+        </template>
+
+        <template #right>
+          <div class="flex items-center gap-2 text-sm text-(--ui-text-muted)">
+            <span>Auto-refresh</span>
+            <USwitch v-model="autoRefresh" size="sm" />
           </div>
         </template>
       </UDashboardToolbar>

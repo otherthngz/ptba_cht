@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const pageTitle = inject<Ref<string>>('pageTitle')
-const showToolbar = inject<Ref<boolean>>('showToolbar')
+const toolbarType = inject<Ref<string>>('toolbarType')
 
 onMounted(() => {
   if (pageTitle) pageTitle.value = 'Master Data – Shift'
-  if (showToolbar) showToolbar.value = false
+  if (toolbarType) toolbarType.value = 'none'
 })
 
 const { data: masterData } = useFetch('/api/master-data')

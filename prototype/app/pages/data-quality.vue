@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const pageTitle = inject<Ref<string>>('pageTitle')
-const showToolbar = inject<Ref<boolean>>('showToolbar')
+const toolbarType = inject<Ref<string>>('toolbarType')
 
 onMounted(() => {
   if (pageTitle) pageTitle.value = 'Data Quality'
-  if (showToolbar) showToolbar.value = false
+  if (toolbarType) toolbarType.value = 'none'
 })
 
 const filterType = ref<string | undefined>()

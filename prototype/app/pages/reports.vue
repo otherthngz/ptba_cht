@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const pageTitle = inject<Ref<string>>('pageTitle')
-const showToolbar = inject<Ref<boolean>>('showToolbar')
+const toolbarType = inject<Ref<string>>('toolbarType')
 
 onMounted(() => {
   if (pageTitle) pageTitle.value = 'Laporan'
-  if (showToolbar) showToolbar.value = true
+  if (toolbarType) toolbarType.value = 'historical'
 })
 
 // ── Tab config ──
